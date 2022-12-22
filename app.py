@@ -20,7 +20,7 @@ base.execute('CREATE TABLE IF NOT EXISTS states (id INTEGER, node_id INTEGER)')
 base.commit()
 
 storage = MemoryStorage()
-bot = Bot(token='5780779424:AAHqlAMKzVkYM7fYek89Mxnx7HyPD3GJXzc')
+bot = Bot(token='5634919470:AAHVMnHME0ZpzDcqZwfcKBX3glIZ7tW9xDQ')
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 
@@ -40,6 +40,9 @@ class FSMtest(StatesGroup):
 
     show_message = State()
 
+    delete_start = State()
+    delete_get_id = State
+
 
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
@@ -49,7 +52,7 @@ async def start(message: types.Message):
 
     start_message = cursor.execute(f'SELECT message_text FROM answers WHERE id = 0').fetchone()[0]
 
-    start_button = 'Купить абонемент в зал'
+    start_button = 'Абонемент в зал'
     start_dialog = ReplyKeyboardMarkup(resize_keyboard=True)
     start_dialog.add(start_button)
 
@@ -121,7 +124,31 @@ async def start_show(message: types.Message):
 
 @dp.message_handler(commands=['delete'])
 async def delete(message: types.Message):
-    await message.answer('В разработке')
+    delete_kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    delete_yes_btn = KeyboardButton('Да')
+    delete_no_btn = KeyboardButton('Нет')
+
+    delete_kb.add(delete_yes_btn).add(delete_no_btn)
+    await message.answer('При удалении, все сообщения, которые идут после него'
+                         ' будут идти после родителя удаленного сообщения, ты точно хочешь удалить?',
+                         reply_markup=delete_kb)
+    await FSMtest.delete_start.set()
+
+
+@dp.message_handler(state=FSMtest.delete_start)
+async def delete_start(message: types.Message, state: FSMContext):
+    if message.text == 'Да':
+        await message.answer('Введи номер сообщения для удаления')
+        await FSMtest.next()
+    else:
+        await message.answer('Отмена операции')
+        await state.finish()
+
+
+@dp.message_handler(state=FSMtest.delete_get_id)
+async def delete_procceed(message: types.Message, state: FSMContext):
+    await message.answer('Сообщение удаляется...')
+    list_of_deleted_childs = cursor.execute(f'select id from answers where parent_id = {message.text}').fetchall()
 
 
 # ##########################################################################################################################
@@ -133,7 +160,7 @@ async def show(message: types.Message, state: FSMContext):
                          f'id родителя: {message_to_show[1]}\n'
                          f'Кнопка: {message_to_show[2]}\n'
                          f'Текст: {message_to_show[3]}')
-    #print(message_to_show)
+    # print(message_to_show)
     await state.finish()
 
 
@@ -168,10 +195,13 @@ async def get_title(message: types.Message, state: FSMContext):
 async def get_message(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['message_text'] = message.text
-        await message.answer(data['message_text'])
+        await message.answer(f"кнопка{data['title']}")
         cursor.execute(f'INSERT INTO answers(parent_id, title, message_text, file) VALUES (?, ?, ?, NULL)',
                        tuple(data.values()))
         base.commit()
+        addedMessageId = cursor.execute(
+            f'SELECT id from answers where parent_id = {data["parent_id"]} and title = "{data["title"]}"').fetchone()
+        await message.answer(f'id добавленного сообщения {addedMessageId}')
 
     await state.finish()
 
