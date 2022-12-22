@@ -20,7 +20,7 @@ base.execute('CREATE TABLE IF NOT EXISTS states (id INTEGER, node_id INTEGER)')
 base.commit()
 
 storage = MemoryStorage()
-bot = Bot(token='5634919470:AAHVMnHME0ZpzDcqZwfcKBX3glIZ7tW9xDQ')
+bot = Bot(token='5780779424:AAHqlAMKzVkYM7fYek89Mxnx7HyPD3GJXzc')
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 
